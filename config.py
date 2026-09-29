@@ -18,3 +18,8 @@ SEED = 42
 
 # Prediction server used by Streamlit.
 API_URL = os.getenv("API_URL", "http://127.0.0.1:8000")
+
+
+
+
+
