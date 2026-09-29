@@ -4,8 +4,8 @@
 # sts.googleapis.com.
 # GitHub secret WORKLOAD_IDENTITY_PROVIDER must contain the full provider path:
 # projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/POOL/providers/PROVIDER
-# Optional secret GCP_SERVICE_ACCOUNT: deployment service account email when
-# using service account impersonation; omit for direct federation.
+# Required secret SERVICE_ACCOUNT_EMAIL: deployment service account email.
+# This workflow uses service account impersonation.
 # For impersonation, grant the GitHub principal roles/iam.workloadIdentityUser
 # on that service account and restrict the provider to your trusted repository.
 # Deployer: roles/run.sourceDeveloper + roles/serviceusage.serviceUsageConsumer
@@ -31,7 +31,7 @@ env:
   PROJECT_ID: "project-e4b8c5a9-80ef-4746-922"
   REGION: "europe-west1"
   SERVICE: "mri-brain"
-  SERVICE_ACCOUNT: ${{ secrets.SERVICE_ACCOUNT_EMAIL}}
+  SERVICE_ACCOUNT: ${{ secrets.SERVICE_ACCOUNT_EMAIL }}
 
 jobs:
   deploy:
@@ -59,15 +59,44 @@ jobs:
           cp models/best_model.pth "$RUNNER_TEMP/cloud-run-source/models/"
           # Only this directory is uploaded, excluding data and auth credentials.
 
+      - name: Check deployment identity configuration
+        run: |
+          if [[ -z "$SERVICE_ACCOUNT" ]]; then
+            echo "::error::Set the SERVICE_ACCOUNT_EMAIL repository secret to the deployment service account email."
+            exit 1
+          fi
+
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@f112390a2df9932162083945e46d439060d66ec2 # v2
         with:
           project_id: ${{ env.PROJECT_ID }}
           workload_identity_provider: ${{ secrets.WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ secrets.SERVICE_ACCOUNT_EMAIL}}
+          service_account: ${{ env.SERVICE_ACCOUNT }}
 
       - name: Set up Google Cloud CLI
         uses: google-github-actions/setup-gcloud@v3
+
+      - name: Check active deployment identity
+        run: |
+          active_account="$(gcloud auth list --filter='status:ACTIVE' --format='value(account)')"
+          if [[ "$active_account" != "$SERVICE_ACCOUNT" ]]; then
+            echo "::error::The active gcloud account does not match SERVICE_ACCOUNT_EMAIL."
+            exit 1
+          fi
+          echo "Using the service account configured in SERVICE_ACCOUNT_EMAIL."
+          printf 'Deployment project: %s\n' "$PROJECT_ID"
+
+      - name: Diagnose source bucket access
+        # Read-only diagnostic. A missing bucket may be created by the deploy step.
+        continue-on-error: true
+        run: |
+          gcloud storage buckets describe "gs://${PROJECT_ID}_cloudbuild" \
+            --project="$PROJECT_ID" \
+            --format='yaml(name,projectNumber)'
+          gcloud storage buckets list \
+            --project="$PROJECT_ID" \
+            --filter="name=${PROJECT_ID}_cloudbuild" \
+            --format='value(name)'
 
       - name: Deploy application to Cloud Run
         working-directory: ${{ runner.temp }}/cloud-run-source

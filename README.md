@@ -136,9 +136,8 @@ Before the first run:
   service, also update `name` in `compose.cloudrun.yaml`.
 - Set the GitHub Actions secret `WORKLOAD_IDENTITY_PROVIDER` to the full provider
   resource path, including the numeric project number.
-- If your OIDC setup impersonates a service account, also set
-  `GCP_SERVICE_ACCOUNT` to its email. Otherwise leave that secret unset for direct
-  federation. For impersonation, the GitHub principal needs
+- Set `SERVICE_ACCOUNT_EMAIL` to the deployment service account email. The
+  workflow checks that gcloud uses this account. The GitHub principal needs
   `roles/iam.workloadIdentityUser` on that account.
 - Enable Cloud Run, Cloud Build, Artifact Registry, IAM Credentials, and Security
   Token Service APIs.
