@@ -31,6 +31,7 @@ env:
   PROJECT_ID: "project-e4b8c5a9-80ef-4746-922"
   REGION: "europe-west1"
   SERVICE: "mri-brain"
+  SERVICE_ACCOUNT: ${{ secrets.SERVICE_ACCOUNT_EMAIL}}
 
 jobs:
   deploy:
