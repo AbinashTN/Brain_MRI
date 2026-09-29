@@ -1,2 +1,3 @@
-# Change on workflow
+# CI/CD
 /.github/workflows/ @abinashtn
+/.github/CODEOWNERS @abinashtn
