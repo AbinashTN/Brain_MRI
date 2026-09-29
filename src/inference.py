@@ -20,6 +20,8 @@ class InferenceModel:
         if checkpoint_path is None:
             checkpoint_path = config.MODEL_PATH
         checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+        if checkpoint["class_names"] != CLASSES:
+            raise ValueError("Checkpoint class order does not match the configured classes")
         self.classes = checkpoint["class_names"]
         self.transform = build_transform()
         self.model = build_model(pretrained=False)
