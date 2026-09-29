@@ -1,75 +1,85 @@
-# This workflow will deploy source code on Cloud Run when a commit is pushed to
-# the "main" branch.
-#
-# To configure this workflow:
-#
-# 1. Enable the following Google Cloud APIs:
-#
-#    - Artifact Registry (artifactregistry.googleapis.com)
-#    - Cloud Build (cloudbuild.googleapis.com)
-#    - Cloud Run (run.googleapis.com)
-#    - IAM Credentials API (iamcredentials.googleapis.com)
-#
-#    You can learn more about enabling APIs at
-#    https://support.google.com/googleapi/answer/6158841.
-#
-# 2. Create and configure a Workload Identity Provider for GitHub:
-#    https://github.com/google-github-actions/auth#preferred-direct-workload-identity-federation.
-#
-#    Depending on how you authenticate, you will need to grant an IAM principal
-#    permissions on Google Cloud:
-#
-#    - Artifact Registry Administrator (roles/artifactregistry.admin)
-#    - Cloud Run Source Developer (roles/run.sourceDeveloper)
-#
-#    You can learn more about setting IAM permissions at
-#    https://cloud.google.com/iam/docs/manage-access-other-resources.
-#
-# 3. Change the values in the "env" block to match your values.
+# Deploys Streamlit and FastAPI together using Cloud Run Compose.
+# Required APIs: run.googleapis.com, cloudbuild.googleapis.com,
+# artifactregistry.googleapis.com, iamcredentials.googleapis.com,
+# sts.googleapis.com.
+# GitHub secret WORKLOAD_IDENTITY_PROVIDER must contain the full provider path:
+# projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/POOL/providers/PROVIDER
+# Optional secret GCP_SERVICE_ACCOUNT: deployment service account email when
+# using service account impersonation; omit for direct federation.
+# For impersonation, grant the GitHub principal roles/iam.workloadIdentityUser
+# on that service account and restrict the provider to your trusted repository.
+# Deployer: roles/run.sourceDeveloper + roles/serviceusage.serviceUsageConsumer
+# on the project, and roles/iam.serviceAccountUser on the runtime service account.
+# Build service account: roles/run.builder on the project.
+# Public access also requires run.services.setIamPolicy (e.g. roles/run.admin).
+# See https://cloud.google.com/run/docs/deploying-source-code
 
-name: 'Deploy to Cloud Run from Source'
+name: "Deploy to Cloud Run from Source"
 
 on:
   push:
     branches:
-      - '"main"'
+      - main
+  workflow_dispatch:
+
+# Serialize deployments so two runs cannot update the service simultaneously.
+concurrency:
+  group: cloud-run-production
+  cancel-in-progress: false
 
 env:
-  PROJECT_ID: 'my-project' # TODO: update to your Google Cloud project ID
-  REGION: 'us-central1' # TODO: update to your region
-  SERVICE: 'my-service' # TODO: update to your service name
+  PROJECT_ID: "project-e4b8c5a9-80ef-4746-922"
+  REGION: "europe-west1"
+  SERVICE: "mri-brain"
 
 jobs:
   deploy:
-    runs-on: 'ubuntu-latest'
+    # Manual runs must also use main.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
 
     permissions:
-      contents: 'read'
-      id-token: 'write'
+      contents: read
+      id-token: write
 
     steps:
-      - name: 'Checkout'
-        uses: 'actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332' # actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
 
-      # Configure Workload Identity Federation and generate an access token.
-      #
-      # See https://github.com/google-github-actions/auth for more options,
-      # including authenticating via a JSON credentials file.
-      - id: 'auth'
-        name: 'Authenticate to Google Cloud'
-        uses: 'google-github-actions/auth@f112390a2df9932162083945e46d439060d66ec2' # google-github-actions/auth@v2
+      - name: Prepare application source
+        shell: bash
+        run: |
+          test -s models/best_model.pth
+          mkdir -p "$RUNNER_TEMP/cloud-run-source/models"
+          cp Dockerfile.backend Dockerfile.frontend compose.cloudrun.yaml "$RUNNER_TEMP/cloud-run-source/"
+          cp requirements.txt requirements-app.txt config.py .dockerignore "$RUNNER_TEMP/cloud-run-source/"
+          cp -R api src app "$RUNNER_TEMP/cloud-run-source/"
+          cp models/best_model.pth "$RUNNER_TEMP/cloud-run-source/models/"
+          # Only this directory is uploaded, excluding data and auth credentials.
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@f112390a2df9932162083945e46d439060d66ec2 # v2
         with:
-          workload_identity_provider: 'projects/123456789/locations/global/workloadIdentityPools/my-pool/providers/my-provider' # TODO: replace with your workload identity provider
+          project_id: ${{ env.PROJECT_ID }}
+          workload_identity_provider: ${{ secrets.WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
 
-      - name: 'Deploy to Cloud Run'
-        uses: 'google-github-actions/deploy-cloudrun@33553064113a37d688aa6937bacbdc481580be17' # google-github-actions/deploy-cloudrun@v2
-        with:
-          service: '${{ env.SERVICE }}'
-          region: '${{ env.REGION }}'
-          # NOTE: If using a different source folder, update the image name below:
-          source: './'
+      - name: Set up Google Cloud CLI
+        uses: google-github-actions/setup-gcloud@v3
 
-      # If required, use the Cloud Run URL output in later steps
-      - name: 'Show output'
-        run: |-
-          echo ${{ steps.deploy.outputs.url }}
+      - name: Deploy application to Cloud Run
+        working-directory: ${{ runner.temp }}/cloud-run-source
+        run: |
+          gcloud run compose up compose.cloudrun.yaml \
+            --project="$PROJECT_ID" \
+            --region="$REGION" \
+            --allow-unauthenticated \
+            --quiet
+
+      - name: Show application URL
+        run: |
+          gcloud run services describe "$SERVICE" \
+            --project="$PROJECT_ID" \
+            --region="$REGION" \
+            --format='value(status.url)'

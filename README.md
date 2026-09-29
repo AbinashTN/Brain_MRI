@@ -116,3 +116,46 @@ Tests use small temporary JPG datasets and randomly initialized weights. They
 check duplicate exclusion, transforms, frozen features, a classifier update,
 checkpoint loading, the configured pipeline and HTTP predictions. They do not
 measure model quality.
+
+## Deploy to Cloud Run
+
+`.github/workflows/cd.yml` deploys on pushes to `main`, or manually from the
+Actions tab on `main`. It currently runs independently of CI; a CI failure does
+not block deployment.
+
+The workflow uses `compose.cloudrun.yaml` to build both existing Dockerfiles and
+run Streamlit and FastAPI inside one Cloud Run service, `mri-brain`. Streamlit
+receives external traffic on port 8501 and calls FastAPI internally on port 8000.
+The local `docker-compose.yml` remains available for local development.
+The workflow enables public access to the Streamlit URL. The API is a sidecar,
+without a separate public endpoint.
+
+Before the first run:
+
+- Check `PROJECT_ID`, `REGION`, and `SERVICE` in the workflow. If renaming the
+  service, also update `name` in `compose.cloudrun.yaml`.
+- Set the GitHub Actions secret `WORKLOAD_IDENTITY_PROVIDER` to the full provider
+  resource path, including the numeric project number.
+- If your OIDC setup impersonates a service account, also set
+  `GCP_SERVICE_ACCOUNT` to its email. Otherwise leave that secret unset for direct
+  federation. For impersonation, the GitHub principal needs
+  `roles/iam.workloadIdentityUser` on that account.
+- Enable Cloud Run, Cloud Build, Artifact Registry, IAM Credentials, and Security
+  Token Service APIs.
+- Give the deployment identity `roles/run.sourceDeveloper` and
+  `roles/serviceusage.serviceUsageConsumer` on the project, plus
+  `roles/iam.serviceAccountUser` on the runtime service account. Enabling public
+  access additionally needs `run.services.setIamPolicy`, included in
+  `roles/run.admin`.
+- Give the build service account `roles/run.builder` on the project. This is
+  normally the Compute Engine default service account, unless overridden.
+
+The workflow stages only application code, dependency files, Dockerfiles and the
+tracked `models/best_model.pth` checkpoint. Datasets and generated authentication
+credentials are excluded. The final step prints the Streamlit URL.
+Cloud Run Compose defaults to one maximum instance; adjust capacity in Cloud Run
+if needed after measuring usage.
+
+References: [Cloud Run Compose](https://cloud.google.com/run/docs/deploy-run-compose),
+[source deployment permissions](https://cloud.google.com/run/docs/deploying-source-code),
+and [GitHub OIDC authentication](https://github.com/google-github-actions/auth).

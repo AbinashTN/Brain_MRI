@@ -1,0 +1,26 @@
+# Cloud Run deploys these containers as one service named mri-brain.
+# Keep this name in sync with SERVICE in .github/workflows/cd.yml.
+name: mri-brain
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    expose:
+      - "8000"
+    cpus: 1
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    ports:
+      - "8501:8501"
+    environment:
+      API_URL: http://127.0.0.1:8000
+    depends_on:
+      - api
+    cpus: 1
+    x-google-cloudrun:
+      ingress-container: true
