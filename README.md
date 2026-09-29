@@ -4,6 +4,11 @@ A small transfer-learning project using MobileNetV3 Small, PyTorch and Streamlit
 The four classes are `glioma`, `meningioma`, `notumor` and `pituitary`.
 Pedictions are not medical diagnoses.
 
+## Dataset
+
+The dataset was found on Kaggle and can be downloaded here:
+[Brain Tumor MRI Dataset](https://www.kaggle.com/datasets/masoudnickparvar/brain-tumor-mri-dataset).
+
 ## Setup
 
 Run commands from the project root:
