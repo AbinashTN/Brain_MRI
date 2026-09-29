@@ -6,7 +6,7 @@ import httpx
 import streamlit as st
 from PIL import Image
 
-from src.dataset import CLASSES
+from config import CLASSES
 
 
 st.set_page_config(page_title="Brain MRI Classifier", page_icon="🧠")

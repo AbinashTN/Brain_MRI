@@ -16,8 +16,13 @@ Run commands from the project root:
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install -r requirements.txt
+python -m pip install -r requirements.txt -r requirements-app.txt
 ```
+
+`requirements.txt` contains the backend, training, evaluation and testing
+dependencies. `requirements-app.txt` contains only the Streamlit interface
+dependencies. Install only the corresponding file for each service, or both
+files for local development and the full test suite.
 
 ## Run the project
 

@@ -16,10 +16,7 @@ fastapi>=0.115,<1
 uvicorn[standard]>=0.32,<1
 python-multipart>=0.0.12,<1
 
-# UI
-streamlit>=1.41,<2
-
-# HTTP client for Streamlit and tests
+# HTTP client for API tests
 httpx>=0.28,<1
 
 # Testing

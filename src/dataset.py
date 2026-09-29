@@ -3,10 +3,9 @@ import logging
 from pathlib import Path
 
 import config
+from config import CLASSES
 from PIL import Image
 from torch.utils.data import Dataset
-
-CLASSES = ["glioma", "meningioma", "notumor", "pituitary"]
 
 
 def load_train_test(data_dir=None):
