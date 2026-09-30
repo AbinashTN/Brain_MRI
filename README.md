@@ -53,6 +53,10 @@ python -m streamlit run app/streamlit_app.py
 python -m pytest -q
 ```
 
+Streamlit includes three example images per class in `app/examples/`, copied
+from the dataset's Testing split. These files are included in the frontend Docker
+image, so examples work locally and on Cloud Run without uploading the dataset.
+
 Streamlit sends the selected image to the API with `POST /predict` and displays
 the JSON response. Only the API loads the model for the interface; both servers
 must be running. The API exposes `/health`, `/predict` and interactive documentation

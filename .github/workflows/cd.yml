@@ -46,6 +46,7 @@ jobs:
           gcloud run compose up docker-compose.yml \
             --project="$PROJECT_ID" \
             --region="$REGION" \
+            --allow-unauthenticated \
             --quiet
 
       - name: Show application URL

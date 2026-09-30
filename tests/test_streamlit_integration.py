@@ -19,7 +19,7 @@ def interface(tmp_path, monkeypatch):
     folder = tmp_path / "Testing" / CLASSES[0]
     folder.mkdir(parents=True)
     Image.new("RGB", (40, 40), (80, 80, 80)).save(folder / "example.jpg")
-    monkeypatch.setattr(config, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(config, "EXAMPLES_DIR", tmp_path / "Testing")
     monkeypatch.setattr(config, "API_URL", "http://testserver")
     path = Path(__file__).resolve().parents[1] / "app/streamlit_app.py"
     app = AppTest.from_file(str(path)).run()
