@@ -1,3 +1,4 @@
 # CI/CD
 /.github/workflows/cd.yml @abinashtn
 /.github/CODEOWNERS @abinashtn
+/.github/ @abinashtn
