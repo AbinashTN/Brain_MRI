@@ -1,0 +1,3 @@
+# Reuse the build exclusions when uploading sources to Cloud Build.
+#!include:.dockerignore
+.gcloudignore

@@ -1,20 +1,4 @@
-# Deploys Streamlit and FastAPI together using Cloud Run Compose.
-# Required APIs: run.googleapis.com, cloudbuild.googleapis.com,
-# artifactregistry.googleapis.com, iamcredentials.googleapis.com,
-# sts.googleapis.com.
-# GitHub secret WORKLOAD_IDENTITY_PROVIDER must contain the full provider path:
-# projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/POOL/providers/PROVIDER
-# Required secret SERVICE_ACCOUNT_EMAIL: deployment service account email.
-# This workflow uses service account impersonation.
-# For impersonation, grant the GitHub principal roles/iam.workloadIdentityUser
-# on that service account and restrict the provider to your trusted repository.
-# Deployer: roles/run.sourceDeveloper + roles/serviceusage.serviceUsageConsumer
-# on the project, and roles/iam.serviceAccountUser on the runtime service account.
-# Build service account: roles/run.builder on the project.
-# Public access also requires run.services.setIamPolicy (e.g. roles/run.admin).
-# See https://cloud.google.com/run/docs/deploying-source-code
-
-name: "Deploy to Cloud Run from Source"
+name: "CD"
 
 on:
   push:
@@ -31,7 +15,6 @@ env:
   PROJECT_ID: "project-e4b8c5a9-80ef-4746-922"
   REGION: "europe-west1"
   SERVICE: "mri-brain"
-  SERVICE_ACCOUNT: ${{ secrets.SERVICE_ACCOUNT_EMAIL }}
 
 jobs:
   deploy:
@@ -46,62 +29,21 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
-
-      - name: Prepare application source
-        shell: bash
-        run: |
-          test -s models/best_model.pth
-          mkdir -p "$RUNNER_TEMP/cloud-run-source/models"
-          cp Dockerfile.backend Dockerfile.frontend compose.cloudrun.yaml "$RUNNER_TEMP/cloud-run-source/"
-          cp requirements.txt requirements-app.txt config.py .dockerignore "$RUNNER_TEMP/cloud-run-source/"
-          cp -R api src app "$RUNNER_TEMP/cloud-run-source/"
-          cp models/best_model.pth "$RUNNER_TEMP/cloud-run-source/models/"
-          # Only this directory is uploaded, excluding data and auth credentials.
-
-      - name: Check deployment identity configuration
-        run: |
-          if [[ -z "$SERVICE_ACCOUNT" ]]; then
-            echo "::error::Set the SERVICE_ACCOUNT_EMAIL repository secret to the deployment service account email."
-            exit 1
-          fi
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332
 
       - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@f112390a2df9932162083945e46d439060d66ec2 # v2
+        uses: google-github-actions/auth@f112390a2df9932162083945e46d439060d66ec2
         with:
           project_id: ${{ env.PROJECT_ID }}
           workload_identity_provider: ${{ secrets.WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ env.SERVICE_ACCOUNT }}
+          service_account: ${{ secrets.SERVICE_ACCOUNT_EMAIL }}
 
       - name: Set up Google Cloud CLI
         uses: google-github-actions/setup-gcloud@v3
 
-      - name: Check active deployment identity
-        run: |
-          active_account="$(gcloud auth list --filter='status:ACTIVE' --format='value(account)')"
-          if [[ "$active_account" != "$SERVICE_ACCOUNT" ]]; then
-            echo "::error::The active gcloud account does not match SERVICE_ACCOUNT_EMAIL."
-            exit 1
-          fi
-          echo "Using the service account configured in SERVICE_ACCOUNT_EMAIL."
-          printf 'Deployment project: %s\n' "$PROJECT_ID"
-
-      - name: Diagnose source bucket access
-        # Read-only diagnostic. A missing bucket may be created by the deploy step.
-        continue-on-error: true
-        run: |
-          gcloud storage buckets describe "gs://${PROJECT_ID}_cloudbuild" \
-            --project="$PROJECT_ID" \
-            --format='yaml(name,projectNumber)'
-          gcloud storage buckets list \
-            --project="$PROJECT_ID" \
-            --filter="name=${PROJECT_ID}_cloudbuild" \
-            --format='value(name)'
-
       - name: Deploy application to Cloud Run
-        working-directory: ${{ runner.temp }}/cloud-run-source
         run: |
-          gcloud run compose up compose.cloudrun.yaml \
+          gcloud run compose up docker-compose.yml \
             --project="$PROJECT_ID" \
             --region="$REGION" \
             --allow-unauthenticated \

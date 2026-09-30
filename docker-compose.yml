@@ -1,8 +1,12 @@
+# Keep this name in sync with SERVICE in .github/workflows/cd.yml.
+name: mri-brain
+
 services:
   api:
     build:
       context: .
       dockerfile: Dockerfile.backend
+    cpus: 1
     ports:
       - "8000:8000"
 
@@ -10,12 +14,13 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.frontend
+    cpus: 1
     ports:
       - "8501:8501"
     environment:
       API_URL: http://api:8000
     depends_on:
       - api
-
-networks:
-  appNetwork:
+    # Cloud Run routes incoming requests to Streamlit;
+    x-google-cloudrun:
+      ingress-container: true

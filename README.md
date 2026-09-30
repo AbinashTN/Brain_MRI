@@ -123,21 +123,23 @@ measure model quality.
 Actions tab on `main`. It currently runs independently of CI; a CI failure does
 not block deployment.
 
-The workflow uses `compose.cloudrun.yaml` to build both existing Dockerfiles and
+The workflow uses `docker-compose.yml` to build both existing Dockerfiles and
 run Streamlit and FastAPI inside one Cloud Run service, `mri-brain`. Streamlit
 receives external traffic on port 8501 and calls FastAPI internally on port 8000.
-The local `docker-compose.yml` remains available for local development.
+The same file runs locally with `docker compose up --build`. Both environments
+use `API_URL=http://api:8000`. Locally, ports 8000 and 8501 remain available;
+the `x-google-cloudrun` extension selects Streamlit as the Cloud Run entry point.
 The workflow enables public access to the Streamlit URL. The API is a sidecar,
 without a separate public endpoint.
 
 Before the first run:
 
 - Check `PROJECT_ID`, `REGION`, and `SERVICE` in the workflow. If renaming the
-  service, also update `name` in `compose.cloudrun.yaml`.
+  service, also update `name` in `docker-compose.yml`.
 - Set the GitHub Actions secret `WORKLOAD_IDENTITY_PROVIDER` to the full provider
   resource path, including the numeric project number.
 - Set `SERVICE_ACCOUNT_EMAIL` to the deployment service account email. The
-  workflow checks that gcloud uses this account. The GitHub principal needs
+  workflow authenticates as this account. The GitHub principal needs
   `roles/iam.workloadIdentityUser` on that account.
 - Enable Cloud Run, Cloud Build, Artifact Registry, IAM Credentials, and Security
   Token Service APIs.
@@ -149,9 +151,11 @@ Before the first run:
 - Give the build service account `roles/run.builder` on the project. This is
   normally the Compute Engine default service account, unless overridden.
 
-The workflow stages only application code, dependency files, Dockerfiles and the
-tracked `models/best_model.pth` checkpoint. Datasets and generated authentication
-credentials are excluded. The final step prints the Streamlit URL.
+The workflow deploys directly from the repository using `docker-compose.yml`.
+`.gcloudignore` reuses the exclusions in `.dockerignore` to exclude datasets,
+tests, caches and generated authentication credentials from the upload. The
+tracked `models/best_model.pth` checkpoint is included. The final step prints
+the Streamlit URL.
 Cloud Run Compose defaults to one maximum instance; adjust capacity in Cloud Run
 if needed after measuring usage.
 
