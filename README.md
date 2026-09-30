@@ -6,7 +6,7 @@ Pedictions are not medical diagnoses.
 
 ## Live demo
 
-[Open the application](https://mri-brain-264286831380.europe-west1.run.app)
+[Open the application](https://mri-brain-264286831380.europe-west1.run.app) : https://mri-brain-264286831380.europe-west1.run.app
 
 ## Dataset
 
